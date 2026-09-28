@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: default
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: cost-optimizer-frontend
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cost-optimizer-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cost-optimizer-frontend
+  template:
+    metadata:
+      labels:
+        app: cost-optimizer-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: cost-optimizer-frontend:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            - name: VITE_API_BASE_URL
+              value: "http://backend-service:8080"

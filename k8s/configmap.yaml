@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cost-optimizer-config
+  namespace: default
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-service:5432/k8s_cost_optimizer
+  SPRING_DATASOURCE_USERNAME: postgres
+  CPU_RATE_PER_HOUR: "0.0475"
+  MEMORY_RATE_PER_GB_HOUR: "0.0063"

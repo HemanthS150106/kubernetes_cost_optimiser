@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: cost-optimizer-db
+    environment:
+      POSTGRES_DB: k8s_cost_optimizer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d k8s_cost_optimizer"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cost-optimizer-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/k8s_cost_optimizer
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      KUBECONFIG_PATH: "" # Will fallback to cluster config if deployed in cluster, or failover gracefully
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Mount kube config to allow container access to Kubernetes when running locally via compose
+      - ~/.kube:/home/spring/.kube:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cost-optimizer-frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: kubernetes-cost-optimizer
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/k8s_cost_optimizer}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+app:
+  jwt:
+    secret: U29tZVN1cGVyU2VjcmV0S2V5Rm9ySjg4c0Nvc3RPcHRpbWl6ZXJXaGljaElzU3Ryb25nRW5vdWdoT3V0c3RhbmRpbmdseVNlY3VyZQ==
+    expiration-ms: 86400000 # 24 hours
+  k8s:
+    use-kubeconfig: true
+    kubeconfig-path: ${KUBECONFIG_PATH:} # If empty, client will try default search path, then in-cluster config
+  pricing:
+    # Generic hourly rates for estimations (average cloud VM costs)
+    cpu-rate-per-hour: ${CPU_RATE_PER_HOUR:0.0475} # $0.0475 per CPU-core hour (~$35/month)
+    memory-rate-per-gb-hour: ${MEMORY_RATE_PER_GB_HOUR:0.0063} # $0.0063 per GB hour (~$4.5/month)
+
+logging:
+  level:
+    root: INFO
+    com.k8s.costoptimizer: DEBUG
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tryItOutByDefault: true
+    operationsSorter: alpha
+    tagsSorter: alpha

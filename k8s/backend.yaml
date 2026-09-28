@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cost-optimizer-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cost-optimizer-reader
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/eviction", "nodes", "namespaces", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Access to metrics server API
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cost-optimizer-reader-binding
+subjects:
+  - kind: ServiceAccount
+    name: cost-optimizer-sa
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cost-optimizer-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: default
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: cost-optimizer-backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cost-optimizer-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cost-optimizer-backend
+  template:
+    metadata:
+      labels:
+        app: cost-optimizer-backend
+    spec:
+      serviceAccountName: cost-optimizer-sa
+      containers:
+        - name: backend
+          image: cost-optimizer-backend:1.0.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cost-optimizer-config
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cost-optimizer-config
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cost-optimizer-secrets
+                  key: database-password
+            - name: APP_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cost-optimizer-secrets
+                  key: jwt-secret
+            - name: CPU_RATE_PER_HOUR
+              valueFrom:
+                configMapKeyRef:
+                  name: cost-optimizer-config
+                  key: CPU_RATE_PER_HOUR
+            - name: MEMORY_RATE_PER_GB_HOUR
+              valueFrom:
+                configMapKeyRef:
+                  name: cost-optimizer-config
+                  key: MEMORY_RATE_PER_GB_HOUR
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
